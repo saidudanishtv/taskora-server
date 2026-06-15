@@ -20,3 +20,10 @@ export const acceptWorkspaceInvite = asyncHandler(async (req, res) => {
 
   res.json(workspace);
 });
+
+export const previewWorkspaceInvite = asyncHandler(async (req, res) => {
+  const result = await workspaceInviteService.previewInvite({
+    token: req.params.token,
+  });
+  res.json(result);
+});

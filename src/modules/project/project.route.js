@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth } from '../../middlewares/auth.middleware.js';
+import { requireAuth, requireActiveUser } from '../../middlewares/auth.middleware.js';
 import { validate } from '../../middlewares/validate.middleware.js';
 import { createProject, deleteProject, listProjects } from './project.controller.js';
 
@@ -25,7 +25,7 @@ const paramsSchema = z.object({
   params: z.object({ id: z.string().min(1) })
 });
 
-router.use(requireAuth);
+router.use(requireAuth, requireActiveUser);
 router.post('/', validate(createProjectSchema), createProject);
 router.get('/', validate(listProjectSchema), listProjects);
 router.delete('/:id', validate(paramsSchema), deleteProject);

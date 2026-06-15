@@ -10,6 +10,14 @@ import {
 } from "../../utils/errors.js";
 
 const createWorkspace = async ({ name, userId }) => {
+  const ownsOne = await Workspace.exists({
+    members: { $elemMatch: { user: userId, role: "owner" } },
+  });
+
+  if (!ownsOne) {
+    throw new ForbiddenError("Only workspace owners can create new workspaces");
+  }
+
   const inviteCode = crypto.randomBytes(3).toString("hex").toUpperCase();
 
   const workspace = await Workspace.create({

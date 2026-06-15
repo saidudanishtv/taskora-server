@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../../middlewares/auth.middleware.js";
+import { requireAuth, requireActiveUser } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   acceptWorkspaceInvite,
   createWorkspaceInvite,
+  previewWorkspaceInvite,
 } from "./workspaceInvite.controller.js";
 
 const router = Router();
@@ -23,9 +24,13 @@ const acceptInviteSchema = z.object({
   }),
 });
 
+// Public — no auth required, used to show invite context before login/signup
+router.get("/preview/:token", previewWorkspaceInvite);
+
 router.use(requireAuth);
 
-router.post("/", validate(createInviteSchema), createWorkspaceInvite);
+// Creating an invite requires an active account; accepting does not (pending users can accept)
+router.post("/", requireActiveUser, validate(createInviteSchema), createWorkspaceInvite);
 router.post(
   "/accept/:token",
   validate(acceptInviteSchema),

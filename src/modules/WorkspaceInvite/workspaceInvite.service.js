@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { WorkspaceInvite } from "./workspaceInvite.model.js";
 import { Workspace } from "../workspace/workspace.model.js";
 import { User } from "../auth/auth.model.js";
+import { env } from "../../config/env.js";
 
 const createInvite = async ({ workspaceId, email, role, userId }) => {
   const normalizedEmail = email.toLowerCase().trim();
@@ -57,7 +58,7 @@ const createInvite = async ({ workspaceId, email, role, userId }) => {
   if (existingInvite) {
     return {
       invite: existingInvite,
-      inviteLink: `http://localhost:5173/accept-invite/${existingInvite.token}`,
+      inviteLink: `${env.clientUrl}/accept-invite/${existingInvite.token}`,
     };
   }
 
@@ -74,70 +75,73 @@ const createInvite = async ({ workspaceId, email, role, userId }) => {
 
   return {
     invite,
-    inviteLink: `http://localhost:5173/accept-invite/${token}`,
+    inviteLink: `${env.clientUrl}/accept-invite/${token}`,
   };
 };
 
 const acceptInvite = async ({ token, userId }) => {
-  const invite = await WorkspaceInvite.findOne({
-    token,
-    accepted: false,
-  });
+  // Atomically claim the invite — only one concurrent request can win this update.
+  // Any race (e.g. React StrictMode double-invocation) loses here instead of
+  // pushing the user to workspace.members twice.
+  const invite = await WorkspaceInvite.findOneAndUpdate(
+    { token, accepted: false, expiresAt: { $gt: new Date() } },
+    { $set: { accepted: true } },
+    { new: true },
+  );
 
   if (!invite) {
-    throw new Error("Invalid invite");
+    throw new Error("Invalid or expired invite");
   }
 
-  if (invite.expiresAt < new Date()) {
-    throw new Error("Invite expired");
-  }
+  const [user, workspace] = await Promise.all([
+    User.findById(userId),
+    Workspace.findById(invite.workspace),
+  ]);
 
-  const user = await User.findById(userId);
-
-  if (!user) {
-    throw new Error("User not found");
-  }
+  if (!user) throw new Error("User not found");
+  if (!workspace) throw new Error("Workspace not found");
+  if (!workspace.isActive) throw new Error("This workspace has been suspended");
 
   const userEmail = user.email.toLowerCase().trim();
   const inviteEmail = invite.email.toLowerCase().trim();
 
   if (userEmail !== inviteEmail) {
+    // Roll back the accepted flag so the invite can be used with the correct account
+    await WorkspaceInvite.findByIdAndUpdate(invite._id, { $set: { accepted: false } });
     throw new Error("This invite is for a different email");
   }
 
-  const workspace = await Workspace.findById(invite.workspace);
-
-  if (!workspace) {
-    throw new Error("Workspace not found");
-  }
-  if (!workspace.isActive) {
-    throw new Error("This workspace has been suspended");
-  }
   const alreadyMember = workspace.members.some(
     (member) => member.user.toString() === userId.toString(),
   );
 
-  if (alreadyMember) {
-    invite.accepted = true;
-    await invite.save();
-
-    return workspace;
+  if (!alreadyMember) {
+    workspace.members.push({ user: userId, role: invite.role });
+    await workspace.save();
+    await User.findByIdAndUpdate(userId, { status: "active" });
   }
 
-  workspace.members.push({
-    user: userId,
-    role: invite.role,
-  });
-
-  await workspace.save();
-
-  invite.accepted = true;
-  await invite.save();
-
   return workspace;
+};
+
+const previewInvite = async ({ token }) => {
+  const invite = await WorkspaceInvite.findOne({ token, accepted: false })
+    .populate("workspace", "name")
+    .populate("invitedBy", "name");
+
+  if (!invite) throw new Error("Invalid or expired invite");
+  if (invite.expiresAt < new Date()) throw new Error("Invite expired");
+
+  return {
+    email: invite.email,
+    role: invite.role,
+    workspaceName: invite.workspace?.name || "a workspace",
+    invitedBy: invite.invitedBy?.name || "Someone",
+  };
 };
 
 export const workspaceInviteService = {
   createInvite,
   acceptInvite,
+  previewInvite,
 };

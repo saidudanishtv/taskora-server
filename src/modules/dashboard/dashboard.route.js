@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../../middlewares/auth.middleware.js";
+import { requireAuth, requireActiveUser } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import { getDashboardStats } from "./dashboard.controller.js";
 
@@ -12,7 +12,7 @@ const dashboardParamsSchema = z.object({
   }),
 });
 
-router.use(requireAuth);
+router.use(requireAuth, requireActiveUser);
 
 router.get("/:workspaceId", validate(dashboardParamsSchema), getDashboardStats);
 

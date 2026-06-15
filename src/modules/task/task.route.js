@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireAuth } from "../../middlewares/auth.middleware.js";
+import { requireAuth, requireActiveUser } from "../../middlewares/auth.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createTask,
@@ -65,7 +65,7 @@ const paramsSchema = z.object({
   }),
 });
 
-router.use(requireAuth);
+router.use(requireAuth, requireActiveUser);
 
 router.post("/", validate(createTaskSchema), createTask);
 
