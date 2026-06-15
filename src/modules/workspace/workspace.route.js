@@ -4,6 +4,7 @@ import {
   requireAuth,
   requireActiveUser,
 } from "../../middlewares/auth.middleware.js";
+import { requireSuperAdmin } from "../../middlewares/superAdmin.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createWorkspace,
@@ -52,7 +53,8 @@ const updateRoleSchema = z.object({
 router.use(requireAuth);
 router.use(requireActiveUser);
 
-router.post("/", validate(createWorkspaceSchema), createWorkspace);
+// Direct creation is super admin only — all user-facing creation goes through workspace-requests
+router.post("/", requireSuperAdmin, validate(createWorkspaceSchema), createWorkspace);
 router.get("/", getMyWorkspaces);
 router.post("/join", validate(joinWorkspaceSchema), joinWorkspace);
 router.get("/:id/members", validate(paramsSchema), getWorkspaceMembers);
