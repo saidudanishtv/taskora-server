@@ -15,7 +15,7 @@ import analyticsRoutes from "./modules/analytics/analytics.route.js";
 import workspaceRequestRoutes from "./modules/workspaceRequest/workspaceRequest.route.js";
 const app = express();
 
-app.use(cors({ origin: env.clientUrl, credentials: true }));
+app.use(cors({ origin: env.allowedOrigins, credentials: true }));
 app.use(express.json());
 app.use(morgan("dev"));
 
