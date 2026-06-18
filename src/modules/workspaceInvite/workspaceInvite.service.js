@@ -46,8 +46,20 @@ const createInvite = async ({ workspaceId, email, role, userId }) => {
     if (alreadyMember) {
       throw new Error("User already in workspace");
     }
+
+    // User exists but not in workspace — add them directly
+    workspace.members.push({ user: existingUser._id, role });
+    await workspace.save();
+    await User.findByIdAndUpdate(existingUser._id, { status: "active" });
+
+    return {
+      message: "User added to workspace successfully",
+      invited: true,
+      directAdd: true,
+    };
   }
 
+  // User doesn't exist — create invite token
   const existingInvite = await WorkspaceInvite.findOne({
     workspace: workspaceId,
     email: normalizedEmail,
@@ -107,7 +119,9 @@ const acceptInvite = async ({ token, userId }) => {
 
   if (userEmail !== inviteEmail) {
     // Roll back the accepted flag so the invite can be used with the correct account
-    await WorkspaceInvite.findByIdAndUpdate(invite._id, { $set: { accepted: false } });
+    await WorkspaceInvite.findByIdAndUpdate(invite._id, {
+      $set: { accepted: false },
+    });
     throw new Error("This invite is for a different email");
   }
 

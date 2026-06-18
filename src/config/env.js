@@ -18,4 +18,5 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || "development-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   allowedOrigins: parseAllowedOrigins(process.env.CLIENT_URL),
+  clientUrl: process.env.CLIENT_URL || "http://localhost:5173",
 };
